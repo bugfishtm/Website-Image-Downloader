@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 
@@ -16,7 +17,7 @@ namespace wib
         ////////////////////////////////////////////////////
             string contextcode = null;
             public void ResetVars() { this.contextcode = null;  }
-            public bool getContext() { if (this.contextcode.Equals(null)) { return false; } return true; }
+            public bool getContext() { if (this.contextcode == null) { return false; } return true; }
 
         ////////////////////////////////////////////////////
         ////////////////////////////////////////////////////
@@ -57,32 +58,95 @@ namespace wib
         ////////////////////////////////////////////////////
         /// Download Images If Not Exists
         ////////////////////////////////////////////////////
-            public bool downloadAnImage(string filename, string imageUrl)
+        public string replacespecialchars(string StrinInit)
+        {
+            string newstring = StrinInit;
+            newstring = newstring.Replace("?", "");
+            return newstring;
+        }
+
+            ////////////////////////////////////////////////////
+            ////////////////////////////////////////////////////
+            /// Download Images If Not Exists
+            ////////////////////////////////////////////////////
+            public bool downloadAnImage(string filename, string imageUrl, bool HiresBool)
             {
                 string[] tmpformatstring = imageUrl.Split('.');
                 ImageFormat format;
-
-            switch (tmpformatstring[tmpformatstring.Length - 1])
-            {
-                case "jpg": case "JPG": format = ImageFormat.Jpeg; break;
-                case "png": case "PNG": format = ImageFormat.Png; break;
-                case "jpeg": case "JPEG": format = ImageFormat.Jpeg; break;
-                case "gif": case "GIF": format = ImageFormat.Gif; break;
-                case "bmp": case "BMP": format = ImageFormat.Bmp; break;
-                case "tiff": case "TIFF": format = ImageFormat.Tiff; break;
-                case "ico": case "ICO": format = ImageFormat.Icon; break;
-                default: return false;
-            };
 
             if (imageUrl.Substring(0, 4) != "http") { return false; }
 
                 if (File.Exists(filename + "." + tmpformatstring[tmpformatstring.Length - 1])) { return true; }
                 WebClient client = new WebClient();
-                Stream stream = client.OpenRead(imageUrl);
-                Bitmap bitmap; bitmap = new Bitmap(stream);
 
-                if (bitmap != null) { 
-                    bitmap.Save(filename + "." + tmpformatstring[tmpformatstring.Length - 1], format);
+            Stream stream;
+            try
+            {
+                stream = client.OpenRead(imageUrl);
+            }
+            catch (WebException) { return false; }
+            catch (Exception) { return false; }
+
+            Bitmap bitmap;
+            try
+            {
+                bitmap = new Bitmap(stream);
+            } catch(ArgumentException)
+            {
+                stream.Flush();
+                stream.Close();
+                client.Dispose();
+                return false;
+            }
+
+            string tmpendingforfile = tmpformatstring[tmpformatstring.Length - 1];
+
+            bool foundendinginstring = tmpendingforfile.IndexOf("jpg") != -1;
+            if(foundendinginstring) { tmpendingforfile = "jpg"; }
+
+             foundendinginstring = tmpendingforfile.IndexOf("jpeg") != -1;
+            if (foundendinginstring) { tmpendingforfile = "jpeg"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("bmp") != -1;
+            if (foundendinginstring) { tmpendingforfile = "bmp"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("gif") != -1;
+            if (foundendinginstring) { tmpendingforfile = "gif"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("ico") != -1;
+            if (foundendinginstring) { tmpendingforfile = "ico"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("JPG") != -1;
+            if (foundendinginstring) { tmpendingforfile = "jpg"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("JPEG") != -1;
+            if (foundendinginstring) { tmpendingforfile = "jpeg"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("BMP") != -1;
+            if (foundendinginstring) { tmpendingforfile = "bmp"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("GIF") != -1;
+            if (foundendinginstring) { tmpendingforfile = "gif"; }
+
+            foundendinginstring = tmpendingforfile.IndexOf("ICO") != -1;
+            if (foundendinginstring) { tmpendingforfile = "ico"; }
+
+            if (bitmap != null) { 
+                    if(HiresBool)
+                        {
+                            if(bitmap.Height > 400 || bitmap.Width > 400)
+                            {
+                                bitmap.Save(filename + "." + tmpendingforfile, bitmap.RawFormat);
+                            } else {
+                                stream.Flush();
+                                stream.Close();
+                                client.Dispose();
+                                return false;
+                            }
+                        } else  {
+                            bitmap.Save(filename + "." + tmpendingforfile, bitmap.RawFormat);
+                        }
+                   
                     stream.Flush();
                     stream.Close();
                     client.Dispose();
@@ -97,19 +161,79 @@ namespace wib
         ////////////////////////////////////////////////////
         ////////////////////////////////////////////////////
         /// GET IMAGE LINKS FROM CONTEXT
-        ////////////////////////////////////////////////////
-        public List<string> getImageLinks()
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        public List<string> getImageLinks(String URLDomain)
         {
-            return null;
+            List<string> tmpsitearray = new List<string>();
+
+            string linksearchvar = "src=\"";
+            string linkendvar = "\"";
+
+            string currentstring = this.contextcode;
+
+            while (currentstring.IndexOf(linksearchvar) != -1)
+            {
+                currentstring = currentstring.Substring(currentstring.IndexOf(linksearchvar) + linksearchvar.Length);
+
+                string tmplinkstring = currentstring;
+                tmplinkstring = tmplinkstring.Substring(0, tmplinkstring.IndexOf(linkendvar) - linkendvar.Length);
+                currentstring = currentstring.Substring(currentstring.IndexOf(linkendvar));
+
+
+                if (tmplinkstring.Substring(0, 4) == "http")
+                {
+                    tmpsitearray.Add(tmplinkstring);
+                }
+                else
+                {
+                    if (tmplinkstring.Length > 4)
+                    {
+                        tmpsitearray.Add(URLDomain + tmplinkstring);
+                    }
+                }
+            }
+
+
+            return tmpsitearray;
         }
 
         ////////////////////////////////////////////////////
         ////////////////////////////////////////////////////
         /// GET SITE LINKS FROM CONTEXT
         ////////////////////////////////////////////////////
-        public List<string> getSiteLinks(String LastSearchString)
+        public List<string> getSiteLinks(String LastSearchString, String URLDomain)
         {
-            return null;
+            List<string> tmpsitearray = new List<string>();
+            tmpsitearray.Add(LastSearchString);
+            
+            string linksearchvar = "<a href=\"";
+            string linkendvar    = "\"";
+
+            string currentstring = this.contextcode;
+
+            while (currentstring.IndexOf(linksearchvar) != -1) {
+               currentstring = currentstring.Substring(currentstring.IndexOf(linksearchvar) + linksearchvar.Length);
+
+               string tmplinkstring = currentstring;
+               tmplinkstring = tmplinkstring.Substring(0, tmplinkstring.IndexOf(linkendvar) - linkendvar.Length);
+               currentstring = currentstring.Substring(currentstring.IndexOf(linkendvar));
+
+                if (tmplinkstring != null && tmplinkstring.Length > 5)
+                {
+                    if (tmplinkstring.Substring(0, 4) == "http")
+                    {
+                        tmpsitearray.Add(tmplinkstring);
+                    }
+                    else
+                    {
+                        if (tmplinkstring.Length > 4)
+                        {
+                            tmpsitearray.Add(URLDomain + tmplinkstring);
+                        }
+                    }
+                }
+            }
+            return tmpsitearray;
         }
 
     }

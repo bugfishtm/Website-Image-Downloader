@@ -3,10 +3,10 @@ using System.Drawing;
 using System.IO;
 using System.Net;
 using System.Windows.Forms;
-using System.Threading;
 using System.ComponentModel;
 using System.Globalization;
 using System.Collections.Generic;
+using System.Text;
 
 namespace wib
 {
@@ -33,6 +33,7 @@ namespace wib
             bool SearchDoneVar                   = false;
             List<string> searchlinkarray       = null;
             List<string> imagelinkarray        = null;
+            bool doOnlyHiRes                   = false;
 
         ////////////////////////////////////////////////////
         ////////////////////////////////////////////////////
@@ -40,12 +41,6 @@ namespace wib
         ////////////////////////////////////////////////////
             void bgw_DoWork(object sender, DoWorkEventArgs e)
                 {
-                ///////////////////////////////////////////////////
-                ///////////////////////////////////////////////////
-                /// First Run Short Sleep
-                ///////////////////////////////////////////////////
-                 if (CurrentImageCount == 0) { Thread.Sleep(3000); }
-
                 ///////////////////////////////////////////////////
                 ///////////////////////////////////////////////////
                 /// Execute if not Pending
@@ -58,6 +53,16 @@ namespace wib
                         ///////////////////////////////////////////////////
                         if (!SearchDoneVar)
                             {
+                                    string tmpsearchurlwithoutend;
+                                    if (CurrentSearchURL.IndexOf("/", 9) == -1)
+                                    {
+                                        tmpsearchurlwithoutend = CurrentSearchURL;
+                                    }
+                                    else
+                                    {
+                                        tmpsearchurlwithoutend = CurrentSearchURL.Substring(0, CurrentSearchURL.IndexOf("/", 9));
+                                    }
+
                                 ///////////////////////////////////////////////////
                                 ///////////////////////////////////////////////////
                                 /// Create Image Array without Subsites
@@ -73,7 +78,7 @@ namespace wib
                                             }
                                             else
                                             {
-                                                imagelinkarray = IMObject.getImageLinks();
+                                                imagelinkarray = IMObject.getImageLinks(tmpsearchurlwithoutend);
                                             }
                                      }
 
@@ -92,7 +97,7 @@ namespace wib
                                             }
                                             else
                                             {
-                                                searchlinkarray = IMObject.getSiteLinks(CurrentSearchURL);
+                                                searchlinkarray = IMObject.getSiteLinks(CurrentSearchURL, tmpsearchurlwithoutend);
                                                 IMObject.ResetVars();
 
                                                 ///////////////////////////////////////////////////
@@ -102,6 +107,7 @@ namespace wib
                                                     int CurrentLinkPosition = 0;
                                                     while(CurrentLinkPosition < searchlinkarray.Count && !isRunAborted)
                                                     {
+                                                        if (bgworker.CancellationPending) { break; }
                                                         IMObject.getHtmlUrlAsString(searchlinkarray[CurrentLinkPosition].ToString());
                                                             if(!IMObject.getContext())
                                                             {
@@ -110,7 +116,10 @@ namespace wib
                                                                 CurrentTextColor = CurrentTextColorError;
                                                                 bgworker.ReportProgress(0, 0);
                                                             } else {
-                                                                imagelinkarray.AddRange(IMObject.getImageLinks());
+                                                                CurrentFileStringMsg = "Found: " + searchlinkarray[CurrentLinkPosition].ToString();
+                                                                CurrentTextColor = CurrentTextColorOk;
+                                                                bgworker.ReportProgress(0, 0);
+                                                                imagelinkarray.AddRange(IMObject.getImageLinks(tmpsearchurlwithoutend));        
                                                             }
                                                 
                                                         IMObject.ResetVars();
@@ -146,7 +155,7 @@ namespace wib
                                 ///////////////////////////////////////////////////
                                 /// Download Image From URL
                                 ///////////////////////////////////////////////////                                
-                                        if (!IMObject.downloadAnImage(DownloadPath + "\\" + CurrentImageCount + " " + OutputFileNameWithDate, imagelinkarray[CurrentImageCount].ToString()))
+                                        if (!IMObject.downloadAnImage(DownloadPath + "\\" + CurrentImageCount + " " + OutputFileNameWithDate, imagelinkarray[CurrentImageCount].ToString(), doOnlyHiRes))
                                         {
                                             IMObject.ResetVars();
                                             CurrentFileStringMsg = CurrentImageCount + ": Image Failed! : " + imagelinkarray[CurrentImageCount].ToString();
@@ -178,22 +187,28 @@ namespace wib
         ////////////////////////////////////////////////////
             void bgw_ProgressChanged(object sender, ProgressChangedEventArgs e)
             {
+                ///////////////////////////////////////////////////
+                ///////////////////////////////////////////////////
+                /// Enable Stop Button On Start of Process
+                ///////////////////////////////////////////////////
+                    stop_button.Enabled = true;
+
                 if (isRunAborted)
-                {
-                    ///////////////////////////////////////////////////
-                    ///////////////////////////////////////////////////
-                    /// Has been stopped by user
-                    /////////////////////////////////////////////////// 
-                        AddTextToRTB(status_textbox, "\n\nOperation stopped by User!\n\n\n", CurrentTextColorError);
-                }
-                else
-                {
-                    ///////////////////////////////////////////////////
-                    ///////////////////////////////////////////////////
-                    /// Refresh Text on Download OK
-                    ///////////////////////////////////////////////////
-                        AddTextToRTB(status_textbox, CurrentFileStringMsg + "!\n", CurrentTextColor);
-                }
+                    {
+                        ///////////////////////////////////////////////////
+                        ///////////////////////////////////////////////////
+                        /// Has been stopped by user
+                        /////////////////////////////////////////////////// 
+                            AddTextToRTB(status_textbox, "\n\nOperation stopped by User!\n\n\n", CurrentTextColorError);
+                            stop_button.Enabled = true;
+                            start_button.Enabled = true;
+                    }   else {
+                        ///////////////////////////////////////////////////
+                        ///////////////////////////////////////////////////
+                        /// Refresh Text on Download OK
+                        ///////////////////////////////////////////////////
+                            AddTextToRTB(status_textbox, CurrentFileStringMsg + "!\n", CurrentTextColor);
+                    }
             }
 
         ////////////////////////////////////////////////////
@@ -211,6 +226,7 @@ namespace wib
                     text_url.ReadOnly = false;
                     radio_nosub.Enabled = true;
                     radio_yessub.Enabled = true;
+                    checkBox1.Enabled = true;
 
                 ///////////////////////////////////////////////////
                 /// Stop Background Worker
@@ -229,7 +245,7 @@ namespace wib
                     ///////////////////////////////////////////////////
                     /// Display Message that Process is Finished
                     ///////////////////////////////////////////////////
-                        AddTextToRTB(status_textbox, "\n\nAll Done\n", CurrentTextColorOk);
+                        AddTextToRTB(status_textbox, "\n\nAll Done\n\n\n\n", CurrentTextColorOk);
 
                     ///////////////////////////////////////////////////
                     ///////////////////////////////////////////////////
@@ -240,7 +256,8 @@ namespace wib
                         radio_yessub.Enabled = true;
                         stop_button.Enabled = false;
                         start_button.Enabled = true;
-            }
+                        checkBox1.Enabled = true;
+                }
 
                 ///////////////////////////////////////////////////
                 ///////////////////////////////////////////////////
@@ -287,6 +304,7 @@ namespace wib
                         text_url.ReadOnly = true;
                         stop_button.Enabled = false;
                         start_button.Enabled = false;
+                        checkBox1.Enabled = false;
 
                     ///////////////////////////////////////////////////
                     ///////////////////////////////////////////////////
@@ -304,6 +322,12 @@ namespace wib
                             AddTextToRTB(status_textbox, " Sublink search disabled!\n", CurrentTextColorInfo);
                         }
                         AddTextToRTB(status_textbox, "Please wait while fetching linklist...\n", CurrentTextColorInfo);
+
+                        if (checkBox1.Checked) {
+                            doOnlyHiRes = true;
+                        } else {
+                            doOnlyHiRes = false;
+                        } 
 
                     ///////////////////////////////////////////////////
                     ///////////////////////////////////////////////////
@@ -336,12 +360,6 @@ namespace wib
                         imagelinkarray = null;
                         searchlinkarray = new List<string>();
                         imagelinkarray = new List<string>();
-
-                    ///////////////////////////////////////////////////
-                    ///////////////////////////////////////////////////
-                    /// Enable Stop Button On Start of Process
-                    ///////////////////////////////////////////////////
-                        stop_button.Enabled = true;
 
                     ///////////////////////////////////////////////////
                     ///////////////////////////////////////////////////
@@ -448,6 +466,16 @@ namespace wib
         private void label2_Click(object sender, EventArgs e)
         {
             System.Diagnostics.Process.Start("http:/bugfishtm.de");
+        }
+
+        private void MainForm_Load(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label7_Click(object sender, EventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://bugfishtm.de/distributions/code/app/242");
         }
     }
 }
