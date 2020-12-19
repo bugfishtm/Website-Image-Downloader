@@ -40,10 +40,16 @@ namespace wib
                 {
                     Stream receiveStream = response.GetResponseStream();
                     StreamReader readStream;
-                    if (String.IsNullOrWhiteSpace(response.CharacterSet))
-                        readStream = new StreamReader(receiveStream);
-                    else
-                        readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet));
+                    if (String.IsNullOrWhiteSpace(response.CharacterSet)) { 
+                        readStream = new StreamReader(receiveStream);}
+                    else { 
+                        try { 
+                        readStream = new StreamReader(receiveStream, Encoding.GetEncoding(response.CharacterSet)); 
+                        } catch(ArgumentException) { 
+                            readStream = new StreamReader(receiveStream, Encoding.UTF8); 
+                        }
+                    
+                }
                     this.contextcode = readStream.ReadToEnd();
                     response.Close();
                     readStream.Close();
@@ -71,12 +77,55 @@ namespace wib
             ////////////////////////////////////////////////////
             public bool downloadAnImage(string filename, string imageUrl, bool HiresBool)
             {
-                string[] tmpformatstring = imageUrl.Split('.');
+                string[] tmpformatstring = imageUrl.Split('/');
                 ImageFormat format;
 
-            if (imageUrl.Substring(0, 4) != "http") { return false; }
 
-                if (File.Exists(filename + "." + tmpformatstring[tmpformatstring.Length - 1])) { return true; }
+            string tmpendingforfile = tmpformatstring[tmpformatstring.Length - 1];
+            bool checkboolforendingvar = false;
+            bool foundendinginstring = tmpendingforfile.IndexOf("jpg") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "jpg"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("pn") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "png"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("png") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "png"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("PNG") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "png"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("jpeg") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "jpeg"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("bmp") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "bmp"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("gif") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "gif"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("ico") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "ico"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("JPG") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "jpg"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("JPEG") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "jpeg"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("BMP") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "bmp"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("GIF") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "gif"; }
+
+            foundendinginstring = tmpendingforfile.LastIndexOf("ICO") != -1;
+            if (foundendinginstring) { checkboolforendingvar = true;tmpendingforfile = "ico"; }
+
+
+            if (imageUrl.Substring(0, 4) != "http" || !checkboolforendingvar) { return false; }
+
+                if (File.Exists(filename + "." + tmpendingforfile)) { return true; }
                 WebClient client = new WebClient();
 
             Stream stream;
@@ -99,37 +148,6 @@ namespace wib
                 return false;
             }
 
-            string tmpendingforfile = tmpformatstring[tmpformatstring.Length - 1];
-
-            bool foundendinginstring = tmpendingforfile.IndexOf("jpg") != -1;
-            if(foundendinginstring) { tmpendingforfile = "jpg"; }
-
-             foundendinginstring = tmpendingforfile.IndexOf("jpeg") != -1;
-            if (foundendinginstring) { tmpendingforfile = "jpeg"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("bmp") != -1;
-            if (foundendinginstring) { tmpendingforfile = "bmp"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("gif") != -1;
-            if (foundendinginstring) { tmpendingforfile = "gif"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("ico") != -1;
-            if (foundendinginstring) { tmpendingforfile = "ico"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("JPG") != -1;
-            if (foundendinginstring) { tmpendingforfile = "jpg"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("JPEG") != -1;
-            if (foundendinginstring) { tmpendingforfile = "jpeg"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("BMP") != -1;
-            if (foundendinginstring) { tmpendingforfile = "bmp"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("GIF") != -1;
-            if (foundendinginstring) { tmpendingforfile = "gif"; }
-
-            foundendinginstring = tmpendingforfile.IndexOf("ICO") != -1;
-            if (foundendinginstring) { tmpendingforfile = "ico"; }
 
             if (bitmap != null) { 
                     if(HiresBool)
@@ -170,25 +188,29 @@ namespace wib
             string linkendvar = "\"";
 
             string currentstring = this.contextcode;
+            currentstring = currentstring.Replace("\n", " ");
+            currentstring = currentstring.Replace("  ", " ");
 
             while (currentstring.IndexOf(linksearchvar) != -1)
             {
                 currentstring = currentstring.Substring(currentstring.IndexOf(linksearchvar) + linksearchvar.Length);
 
                 string tmplinkstring = currentstring;
-                tmplinkstring = tmplinkstring.Substring(0, tmplinkstring.IndexOf(linkendvar) - linkendvar.Length);
+                tmplinkstring = tmplinkstring.Substring(0, tmplinkstring.IndexOf(linkendvar));
                 currentstring = currentstring.Substring(currentstring.IndexOf(linkendvar));
 
-
-                if (tmplinkstring.Substring(0, 4) == "http")
+                if (tmplinkstring != null && tmplinkstring.Length > 4)
                 {
-                    tmpsitearray.Add(tmplinkstring);
-                }
-                else
-                {
-                    if (tmplinkstring.Length > 4)
+                    if (tmplinkstring.Substring(0, 4) == "http")
                     {
-                        tmpsitearray.Add(URLDomain + tmplinkstring);
+                        tmpsitearray.Add(tmplinkstring);
+                    }
+                    else
+                    {
+                        if (tmplinkstring.Length > 4)
+                        {
+                            tmpsitearray.Add(URLDomain + tmplinkstring);
+                        }
                     }
                 }
             }
@@ -210,12 +232,14 @@ namespace wib
             string linkendvar    = "\"";
 
             string currentstring = this.contextcode;
+            currentstring = currentstring.Replace("\n", " ");
+            currentstring = currentstring.Replace("  ", " ");
 
             while (currentstring.IndexOf(linksearchvar) != -1) {
                currentstring = currentstring.Substring(currentstring.IndexOf(linksearchvar) + linksearchvar.Length);
 
                string tmplinkstring = currentstring;
-               tmplinkstring = tmplinkstring.Substring(0, tmplinkstring.IndexOf(linkendvar) - linkendvar.Length);
+               tmplinkstring = tmplinkstring.Substring(0, tmplinkstring.IndexOf(linkendvar));
                currentstring = currentstring.Substring(currentstring.IndexOf(linkendvar));
 
                 if (tmplinkstring != null && tmplinkstring.Length > 5)
